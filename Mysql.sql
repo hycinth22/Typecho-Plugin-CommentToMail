@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS `typecho_mail` (  `id` int(11) unsigned NOT NULL auto_increment,  `content` varchar(200) NOT NULL,  `sent` tinyint(1) DEFAULT '0',  `log` varchar(200),  PRIMARY KEY (`id`)) ENGINE=MYISAM DEFAULT CHARSET=%charset%;
