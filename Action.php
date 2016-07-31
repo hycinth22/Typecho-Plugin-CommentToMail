@@ -1,5 +1,4 @@
 <?php
-
 class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
 {
     /** @var  数据操作对象 */
@@ -23,6 +22,178 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
     
     /** @var  邮件内容信息 */
     private  $_email;
+
+    public function processQueue()
+    {
+        $this->sendQuque(Helper::options()->plugin('CommentToMail')->key);
+    }
+    
+    
+    public function sendQuque($key)
+    {
+        $this->init();
+        $tasks = $this->_db->fetchAll($this->_db->select('id', 'content')->from($this->_prefix.'mail')
+                            ->where('sent = ?', 0));
+        foreach($tasks as &$cur)
+        {
+            $content = unserialize($cur['content']);
+            $this->process($content);
+            $this->_db->query($this->_db->update($this->_prefix.'mail')->rows(array('sent' => 1))->where('id = ?', $cur['id']));
+        }
+        
+    }
+    
+    public function process($content)
+    {
+        // $this->init();
+        /* if (!$this->_user->simpleLogin($this->_email->ownerId)) {
+            $this->widget('Widget_Archive@404', 'type=404')->render();
+            exit;
+        } */
+        $this->_email = $content;
+        //如果本次评论设置了拒收邮件，把coid加入拒收列表
+        if ($this->_email->banMail) {
+            $this->ban($this->_email->coid, true);
+        }
+        
+        //发件人邮箱
+        $this->_email->from = $this->_cfg->user;
+        //发件人名称
+        $this->_email->fromName = $this->_cfg->fromName ? $this->_cfg->fromName : $this->_email->siteTitle;
+        //向博主发邮件的标题格式
+        $this->_email->titleForOwner = $this->_cfg->titleForOwner;
+
+        //向访客发邮件的标题格式
+        $this->_email->titleForGuest = $this->_cfg->titleForGuest;
+        //验证博主是否接收自己的邮件
+        $toMe = (in_array('to_me', $this->_cfg->other) && $this->_email->ownerId == $this->_email->authorId) ? true : false;
+
+        //向博主发信
+        if (in_array($this->_email->status, $this->_cfg->status) && in_array('to_owner', $this->_cfg->other)
+            && ( $toMe || $this->_email->ownerId != $this->_email->authorId) && 0 == $this->_email->parent ) {
+            if (empty($this->_cfg->mail)) {
+                Typecho_Widget::widget('Widget_Users_Author@temp' . $this->_email->cid, array('uid' => $this->_email->ownerId))->to($user);
+            	$this->_email->to = $user->mail;
+            } else {
+                $this->_email->to = $this->_cfg->mail;
+            }
+            $this->authorMail()->sendMail();
+        }
+
+        //向访客发信
+        if (0 != $this->_email->parent 
+            && 'approved' == $this->_email->status 
+            && in_array('to_guest', $this->_cfg->other)
+            && !$this->ban($this->_email->parent)) {
+            //如果联系我的邮件地址为空，则使用文章作者的邮件地址
+            if (empty($this->_email->contactme)) {
+                if (!isset($user) || !$user) {
+                    Typecho_Widget::widget('Widget_Users_Author@temp' . $this->_email->cid, array('uid' => $this->_email->ownerId))->to($user);
+                }
+                $this->_email->contactme = $user->mail;
+            } else {
+                $this->_email->contactme = $this->_cfg->contactme;
+            }
+            $original = $this->_db->fetchRow($this->_db->select('author', 'mail', 'text')
+                                                       ->from('table.comments')
+                                                       ->where('coid = ?', $this->_email->parent));
+            if (in_array('to_me', $this->_cfg->other) 
+                || $this->_email->mail != $original['mail']) {
+                $this->_email->to             = $original['mail'];
+                $this->_email->originalText   = $original['text'];
+                $this->_email->originalAuthor = $original['author'];
+                $this->guestMail()->sendMail();
+            }
+        }
+        $date = new Typecho_Date(Typecho_Date::gmtTime());
+        $time = $date->format('Y-m-d H:i:s');
+        $this->mailLog(false, $time . " 邮件发送完毕!\r\n");
+}
+
+    /**
+     * 作者邮件信息
+     * @return $this
+     */
+    public function authorMail()
+    {
+        $this->_email->toName = $this->_email->siteTitle;
+        $date = new Typecho_Date($this->_email->created);
+        $time = $date->format('Y-m-d H:i:s');
+        $status = array(
+            "approved" => '通过',
+            "waiting"  => '待审',
+            "spam"     => '垃圾'
+        );
+        $search  = array(
+            '{siteTitle}',
+            '{title}',
+            '{author}',
+            '{ip}',
+            '{mail}',
+            '{permalink}',
+            '{manage}',
+            '{text}',
+            '{time}',
+            '{status}'
+        );
+        $replace = array(
+            $this->_email->siteTitle,
+            $this->_email->title,
+            $this->_email->author,
+            $this->_email->ip,
+            $this->_email->mail,
+            $this->_email->permalink,
+            $this->_email->manage,
+            $this->_email->text,
+            $time,
+            $status[$this->_email->status]
+        );
+
+        $this->_email->msgHtml = str_replace($search, $replace, $this->getTemplate('owner'));
+        $this->_email->subject = str_replace($search, $replace, $this->_email->titleForOwner);
+        $this->_email->altBody = "作者：".$this->_email->author."\r\n链接：".$this->_email->permalink."\r\n评论：\r\n".$this->_email->text;
+
+        return $this;
+    }
+
+    /**
+     * 访问邮件信息
+     * @return $this
+     */
+    public function guestMail()
+    {
+        $this->_email->toName = $this->_email->originalAuthor ? $this->_email->originalAuthor : $this->_email->siteTitle;
+        $date    = new Typecho_Date($this->_email->created);
+        $time    = $date->format('Y-m-d H:i:s');
+        $search  = array(
+            '{siteTitle}',
+            '{title}',
+            '{author_p}',
+            '{author}',
+            '{permalink}',
+            '{text}',
+            '{contactme}',
+            '{text_p}',
+            '{time}'
+        );
+        $replace = array(
+            $this->_email->siteTitle,
+            $this->_email->title,
+            $this->_email->originalAuthor,
+            $this->_email->author,
+            $this->_email->permalink,
+            $this->_email->text,
+            $this->_email->contactme,
+            $this->_email->originalText,
+            $time
+        );
+
+        $this->_email->msgHtml = str_replace($search, $replace, $this->getTemplate('guest'));
+        $this->_email->subject = str_replace($search, $replace, $this->_email->titleForGuest);
+        $this->_email->altBody = "作者：".$this->_email->author."\r\n链接：".$this->_email->permalink."\r\n评论：\r\n".$this->_email->text;
+
+        return $this;
+    }
 
     /*
      * 发送邮件
@@ -227,6 +398,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
     public function action()
     {
         $this->on($this->request->is('do=testMail'))->testMail();
-        $this->on($this->request->is('do=editTheme'))->editTheme($this->request->edit);f
+        $this->on($this->request->is('do=editTheme'))->editTheme($this->request->edit);
+        $this->on($this->request->is('do=sendQuque'))->sendQuque($this->request->key);
     }
 }
