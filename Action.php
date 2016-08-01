@@ -25,32 +25,36 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
 
     public function processQueue()
     {
-        $this->sendQuque(Helper::options()->plugin('CommentToMail')->key);
+        $this->deliverMail(Helper::options()->plugin('CommentToMail')->key);
     }
     
     
-    public function sendQuque($key)
+    public function deliverMail($key)
     {
-        $this->init();
-        $tasks = $this->_db->fetchAll($this->_db->select('id', 'content')->from($this->_prefix.'mail')
-                            ->where('sent = ?', 0));
-        foreach($tasks as &$cur)
+        if ($key != Helper::options()->plugin('CommentToMail')->key)
         {
-            $content = unserialize($cur['content']);
-            $this->process($content);
-            $this->_db->query($this->_db->update($this->_prefix.'mail')->rows(array('sent' => 1))->where('id = ?', $cur['id']));
+            $this->widget('Widget_Archive@404', 'type=404')->render();
+        }
+        $this->init();
+        $mailQueue = $this->_db->fetchAll($this->_db->select('id', 'content')->from($this->_prefix.'mail')
+                            ->where('sent = ?', 0));
+        foreach($mailQueue as &$mail)
+        {
+            $mailInfo = unserialize($mail['content']);
+            $this->processMail($mailInfo);
+            $this->_db->query($this->_db->update($this->_prefix.'mail')->rows(array('sent' => 1))->where('id = ?', $mail['id']));
         }
         
     }
     
-    public function process($content)
+    public function processMail($mailInfo)
     {
         // $this->init();
         /* if (!$this->_user->simpleLogin($this->_email->ownerId)) {
             $this->widget('Widget_Archive@404', 'type=404')->render();
             exit;
         } */
-        $this->_email = $content;
+        $this->_email = $mailInfo;
         //如果本次评论设置了拒收邮件，把coid加入拒收列表
         if ($this->_email->banMail) {
             $this->ban($this->_email->coid, true);
@@ -399,6 +403,6 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
     {
         $this->on($this->request->is('do=testMail'))->testMail();
         $this->on($this->request->is('do=editTheme'))->editTheme($this->request->edit);
-        $this->on($this->request->is('do=sendQuque'))->sendQuque($this->request->key);
+        $this->on($this->request->is('do=deliverMail'))->deliverMail($this->request->key);
     }
 }

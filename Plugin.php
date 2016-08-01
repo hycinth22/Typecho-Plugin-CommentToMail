@@ -151,7 +151,7 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
 
         
         $url = ($options->rewrite) ? $options->siteUrl : $options->siteUrl . 'index.php';
-        $url = rtrim($url, '/') . '/action/' . self::$action . '?do=sendQuque&key=[yourKey]';
+        $url = rtrim($url, '/') . '/action/' . self::$action . '?do=deliverMail&key=[yourKey]';
         $key = new Typecho_Widget_Helper_Form_Element_Text('key',null, Typecho_Common::randString(16),
                 _t('key'), _t('执行发送任务地址为'.$url) );
         $form->addInput($key->addRule('required', _t('key 不能为空.')));
