@@ -150,12 +150,18 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
         $form->addInput($titleForGuest->addRule('required', _t('访客接收邮件标题 不能为空')));
 
         
-        $url = ($options->rewrite) ? $options->siteUrl : $options->siteUrl . 'index.php';
-        $url = rtrim($url, '/') . '/action/' . self::$action . '?do=deliverMail&key=[yourKey]';
+        $entryUrl = ($options->rewrite) ? $options->siteUrl : $options->siteUrl . 'index.php';
+
+        $deliverMailUrl = rtrim($entryUrl, '/') . '/action/' . self::$action . '?do=deliverMail&key=[yourKey]';
         $key = new Typecho_Widget_Helper_Form_Element_Text('key',null, Typecho_Common::randString(16),
-                _t('key'), _t('执行发送任务地址为'.$url) );
+                _t('key'), _t('执行发送任务地址为'.$deliverMailUrl) );
         $form->addInput($key->addRule('required', _t('key 不能为空.')));
 
+        $nonAuthUrl = rtrim($entryUrl, '/') . '/commentToMailProcessQueue/';
+        $nonAuth = new Typecho_Widget_Helper_Form_Element_Checkbox('verify',
+                array('nonAuth'=>'开启不验证key(特殊环境可使用) '.$nonAuthUrl),
+                array(),'执行验证');
+        $form->addInput($nonAuth);
 
     }
 

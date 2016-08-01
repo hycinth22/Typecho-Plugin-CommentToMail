@@ -25,35 +25,50 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
 
     public function processQueue()
     {
-        $this->deliverMail(Helper::options()->plugin('CommentToMail')->key);
+        $this->init();
+        if (!isset($this->_cfg->verify) || !in_array('nonAuth', $this->_cfg->verify))
+        {
+            $this->response->throwJson( array(
+                'result'=>0,
+                'msg'=>'Forbidden'
+                ));
+        }
+        $this->deliverMail($this->_cfg->key);
     }
     
     
     public function deliverMail($key)
     {
-        if ($key != Helper::options()->plugin('CommentToMail')->key)
+        if ($key != $this->_cfg->key)
         {
-            $this->widget('Widget_Archive@404', 'type=404')->render();
+            $this->response->throwJson( array(
+                'result'=>0,
+                'msg'=>'No permission'
+            )); 
         }
-        $this->init();
         $mailQueue = $this->_db->fetchAll($this->_db->select('id', 'content')->from($this->_prefix.'mail')
                             ->where('sent = ?', 0));
+        $id = array();
         foreach($mailQueue as &$mail)
         {
             $mailInfo = unserialize($mail['content']);
-            $this->processMail($mailInfo);
-            $this->_db->query($this->_db->update($this->_prefix.'mail')->rows(array('sent' => 1))->where('id = ?', $mail['id']));
+            if ($this->processMail($mailInfo))
+            {
+                $this->_db->query($this->_db->update($this->_prefix.'mail')->rows(array('sent' => 1))->where('id = ?', $mail['id']));
+                array_push($id, $mail['id']);
+            }
         }
-        
+        $this->response->throwJson( array(
+            'result'=>1,
+            'num'=> count($mailQueue),
+            'success'=> count($id),
+            'fail' => count($mailQueue)-count($id),
+            'id'=> $id
+            ));
     }
     
     public function processMail($mailInfo)
     {
-        // $this->init();
-        /* if (!$this->_user->simpleLogin($this->_email->ownerId)) {
-            $this->widget('Widget_Archive@404', 'type=404')->render();
-            exit;
-        } */
         $this->_email = $mailInfo;
         //如果本次评论设置了拒收邮件，把coid加入拒收列表
         if ($this->_email->banMail) {
@@ -112,6 +127,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
         $date = new Typecho_Date(Typecho_Date::gmtTime());
         $time = $date->format('Y-m-d H:i:s');
         $this->mailLog(false, $time . " 邮件发送完毕!\r\n");
+        return true;
 }
 
     /**
@@ -401,6 +417,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
      */
     public function action()
     {
+        $this->init();
         $this->on($this->request->is('do=testMail'))->testMail();
         $this->on($this->request->is('do=editTheme'))->editTheme($this->request->edit);
         $this->on($this->request->is('do=deliverMail'))->deliverMail($this->request->key);
