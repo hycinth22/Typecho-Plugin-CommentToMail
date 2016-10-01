@@ -159,7 +159,7 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
 
         $nonAuthUrl = rtrim($entryUrl, '/') . '/commentToMailProcessQueue/';
         $nonAuth = new Typecho_Widget_Helper_Form_Element_Checkbox('verify',
-                array('nonAuth'=>'开启不验证key(特殊环境可使用) '.$nonAuthUrl),
+                array('nonAuth'=>'开启不验证key（仅特殊环境下使用，建议无需求不要勾选，以防被用于恶意消耗资源) '.$nonAuthUrl),
                 array(),'执行验证');
         $form->addInput($nonAuth);
 
