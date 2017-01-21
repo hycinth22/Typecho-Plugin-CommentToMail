@@ -35,19 +35,7 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
      */
     public static function activate()
     {
-        if (false == self::isAvailable()) {
-            throw new Typecho_Plugin_Exception(_t('对不起, 您的主机没有打开 allow_url_fopen 功能而且不支持 php-curl 扩展, 无法正常使用此功能'));
-        }
-        
-        $cacheDir = sys_get_temp_dir();
-        if ( !( file_exists($cacheDir) || mkdir($cacheDir, 0644) ) )
-        {
-            throw new Typecho_Plugin_Exception(_t('对不起，创建缓存目录失败，无法正常使用此功能'));
-        }
-        if (false == self::isWritable($cacheDir)) {
-            throw new Typecho_Plugin_Exception(_t('对不起，缓存目录不可写，无法正常使用此功能'));
-        }
-
+		self::dbInstall();
         Typecho_Plugin::factory('Widget_Feedback')->finishComment = array('CommentToMail_Plugin', 'parseComment');
         Typecho_Plugin::factory('Widget_Comments_Edit')->finishComment = array('CommentToMail_Plugin', 'parseComment');
         Helper::addAction(self::$action, 'CommentToMail_Action');
@@ -175,7 +163,7 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
     public static function personalConfig(Typecho_Widget_Helper_Form $form)
     {}
 
-	public static function linksInstall()
+	public static function dbInstall()
 	{
 		$installDb = Typecho_Db::get();
 		$type = explode('_', $installDb->getAdapterName());
@@ -267,4 +255,5 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
         $date = new Typecho_Date(Typecho_Date::gmtTime());
         $time = $date->format('Y-m-d H:i:s');
     }
+
 }
