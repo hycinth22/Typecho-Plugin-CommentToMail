@@ -41,7 +41,6 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
         Helper::addAction(self::$action, 'CommentToMail_Action');
         Helper::addRoute('commentToMailProcessQueue', '/commentToMailProcessQueue/', 'CommentToMail_Action', 'processQueue');
         Helper::addPanel(1, self::$panel, '评论邮件提醒', '评论邮件提醒控制台', 'administrator');
-
         return _t('请设置邮箱信息，以使插件正常使用！');
     }
 
@@ -151,6 +150,12 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
                 array(),'执行验证');
         $form->addInput($nonAuth);
 
+        $clean_time = new Typecho_Widget_Helper_Form_Element_Select('clean_time',
+                array('no_clean' => '不清理',
+                    'immediate' => '发送成功后立即清理'
+					),
+                'no_clean', _t('清理时间'), _t('已发送邮件数据移除的时间'));
+        $form->addInput($clean_time);
     }
 
     /**

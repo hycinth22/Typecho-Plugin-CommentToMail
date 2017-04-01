@@ -58,6 +58,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
                 array_push($id, $mail['id']);
             }
         }
+		$this->clean();
         $this->response->throwJson( array(
             'result'=>1,
             'num'=> count($mailQueue),
@@ -338,6 +339,24 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
         return false;
     }
 
+	public function clean()
+	{
+		$clean_time = $this->_cfg->clean_time;
+        $db = $this->_db;
+        $prefix = $this->_prefix;
+
+		if ($clean_time == 'immediate')
+		{
+
+			$id = $db->query(
+				$this->_db->delete($this->_prefix.'mail')
+								->where('sent = ?', 1)
+			);
+		}
+
+	}
+	
+	
     /**
      * 邮件发送测试
      */
