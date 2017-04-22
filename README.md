@@ -4,10 +4,10 @@ Typecho 评论邮件提醒插件
 
 相比原版本，使用消息队列取代内部http调用，提升访客评论流畅度体验。
 
-遵循GPL LICENSE v2，衍生于[CommentToMail Byends版本 v2.0.0](http://www.byends.com/typecho/CommentToMail-v2-0-0.html)
+遵循GPL LICENSE v2，衍生于[CommentToMail Byends版本 v2.0.0](http://typecho.byends.com/post/CommentToMail-v2-0-0.html)
 
 ### 实验性警告
-发布仓促，许多地方尚待完善。
+发布仓促，许多地方尚待完善。如果发现问题请及时与我联系，也欢迎各种issue、PR。
 
 ### 使用说明
 1. 下载插件
