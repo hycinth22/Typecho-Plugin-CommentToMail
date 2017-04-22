@@ -11,12 +11,17 @@ Typecho 评论邮件提醒插件
 
 ### 使用说明
 1. 下载插件
-2. 将插件上传到 `/usr/plugins/` 这个目录下
-3. 登陆后台，在“控制台”下拉菜单中进入“插件管理”
-4. 启用相关插件
-5. 设置smtp服务器地址、邮箱地址、密码等信息
-6. 设置cron定时执行发送队列。(注意替换链接中的key为所自己设置的)
+2. 将插件上传到 `/usr/plugins/` 目录下
+3. 修改主题模板`comments.php`文件，在评论form表单的适当位置添加name为`receiveMail`的选择框（checkbox）。[示例代码](#评论参考代码)
+4. 登陆后台，在“控制台”下拉菜单中进入“插件管理”
+5. 启用相关插件
+6. 设置smtp服务器地址、邮箱地址、密码等信息
+7. 设置cron定时执行发送队列。(注意替换链接中的key为所自己设置的)
 
+## 评论参考代码
+*该代码必须在适当位置加入，如未加入该代码，则插件将默认按照不发送提醒邮件处理所有评论。*
++ 正常显示选择框： `<input type="checkbox" name="receiveMail" id="receiveMail" value="yes" checked /> <label for="receiveMail" style="padding-left:8px;">当有人回复时接收邮件提醒</label>` 
++ 隐藏选择框（默认接受邮件）： `<input type="hidden" name="receiveMail" id="receiveMail" value="yes" />` 
 
 ### 升级日志
 
