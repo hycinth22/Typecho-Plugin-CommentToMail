@@ -125,7 +125,7 @@ class CommentToMail_Plugin implements Typecho_Plugin_Interface
                     'to_guest' => '评论被回复时，发邮件通知评论者。',
                     'to_me'=>'自己回复自己的评论时，发邮件通知。(同时针对博主和访客)',
                     'to_log' => '记录邮件发送日志。'),
-                array('to_owner','to_guest'), '其他设置',_t('选中该选项插件会在log/mailer_log.txt 文件中记录发送日志。'));
+                array('to_owner','to_guest'), '其他设置',_t('选中该选项插件会在数据库log中记录发送日志。'));
         $form->addInput($other->multiMode());
 
         $titleForOwner = new Typecho_Widget_Helper_Form_Element_Text('titleForOwner',null,"[{title}] 一文有新的评论",

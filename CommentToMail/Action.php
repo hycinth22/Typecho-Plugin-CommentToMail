@@ -23,14 +23,17 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
     /** @var  邮件内容信息 */
     private  $_email;
 
+    /** @var  邮件id */
+    private  $_email_id;
+
     public function processQueue()
     {
         $this->init();
         if (!isset($this->_cfg->verify) || !in_array('nonAuth', $this->_cfg->verify))
         {
             $this->response->throwJson( array(
-                'result'=>0,
-                'msg'=>'Forbidden'
+                'result' => 0,
+                'msg' => 'Forbidden'
                 ));
         }
         $this->deliverMail($this->_cfg->key);
@@ -42,29 +45,57 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
         if ($key != $this->_cfg->key)
         {
             $this->response->throwJson( array(
-                'result'=>0,
-                'msg'=>'No permission'
+                'result' => 0,
+                'msg' =>'No permission'
             )); 
         }
+
         $mailQueue = $this->_db->fetchAll($this->_db->select('id', 'content')->from($this->_prefix.'mail')
                             ->where('sent = ?', 0));
-        $id = array();
+        $success_id = array();
+		$fail_id = array();
+		$is_success = false;
+		$log = "";
         foreach($mailQueue as &$mail)
         {
+			$this->_email_id = $mail['id'];
             $mailInfo = unserialize($mail['content']);
-            if ($this->processMail($mailInfo))
-            {
-                $this->_db->query($this->_db->update($this->_prefix.'mail')->rows(array('sent' => 1))->where('id = ?', $mail['id']));
-                array_push($id, $mail['id']);
-            }
+			if ($mailInfo)
+			{
+				if ($this->processMail($mailInfo))
+				{
+					$this->_db->query($this->_db->update($this->_prefix.'mail')->rows(array('sent' => 1))->where('id = ?', $mail['id']));
+					$is_success = true;
+				}
+			}else
+			{
+				$log = 'unserialize error';
+				$is_success = false;
+			}
+			if (!empty($log))
+			{
+				$this->mailLog(true, 'unserialize error');
+			}
+			if ($is_success)
+			{
+				array_push( $success_id, $mail['id']);
+			}else
+			{
+				array_push( $fail_id, $mail['id']);
+			}
         }
 		$this->clean();
-        $this->response->throwJson( array(
-            'result'=>1,
-            'num'=> count($mailQueue),
-            'success'=> count($id),
-            'fail' => count($mailQueue)-count($id),
-            'id'=> $id
+        $this->response->throwJson(array(
+            'result'=> true,
+            'amount'=> count($mailQueue),
+            'success'=> array( 
+				'amount' => count($success_id),
+				'id' => $success_id
+				),
+            'fail' => array( 
+				'amount' => count($fail_id),
+				'id' => $fail_id
+				)
             ));
     }
     
@@ -127,7 +158,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
         }
         $date = new Typecho_Date(Typecho_Date::gmtTime());
         $time = $date->format('Y-m-d H:i:s');
-        $this->mailLog(false, $time . " 邮件发送完毕!\r\n");
+		$this->mailLog(false, $time . " 邮件发送完毕!\r\n");
         return true;
 }
 
@@ -282,15 +313,13 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
         if (!$this->_isMailLog) {
             return false;
         }
-
-        $fileName = $this->_dir . '/log/mailer_log.txt';
         if ($type) {
             $guest = explode('@', $this->_email->to);
             $guest = substr($this->_email->to, 0, 1) . '***' . $guest[1];
             $content  = $content ? $content : "向 " . $guest . " 发送邮件成功！\r\n";
         }
-
-        file_put_contents($fileName, $content, FILE_APPEND);
+		// expression
+        $this->_db->query($this->_db->update($this->_prefix.'mail')->rows(array('log' => $content))->where('id = ?', $this->_email_id));
     }
 
     /*
@@ -367,7 +396,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
         }
 
         $this->init();
-        $this->_isMailLog = true;
+        $this->_isMailLog = false;
         $email = $this->request->from('toName', 'to', 'title', 'content');
         
         $this->_email->from = $this->_cfg->user;
@@ -425,7 +454,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
         $this->_user = $this->widget('Widget_User');
         $this->_options = $this->widget('Widget_Options');
         $this->_cfg = Helper::options()->plugin('CommentToMail');
-        // $this->mailLog(false, "开始发送邮件Action：" . $this->request->send . "\r\n");
+		$this->_isMailLog = in_array('to_log', $this->_cfg->other) ? true : false;
     }
 
     /**
