@@ -4,7 +4,7 @@
  *
  * @package CommentToMail
  * @author aprikyblue
- * @version 3.0
+ * @version 3.1
  * @link https://github.com/aprikyblue/Typecho-Plugin-CommentToMail
  * @oriAuthor Byends Upd.(http://www.byends.com/) / DEFE (http://defe.me)
  * 
