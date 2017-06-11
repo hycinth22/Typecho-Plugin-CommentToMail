@@ -54,12 +54,14 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
                             ->where('sent = ?', 0));
         $success_id = array();
 		$fail_id = array();
-		$is_success = false;
-		$log = "";
         foreach($mailQueue as &$mail)
         {
+            $log = "";
+            $is_success = false;
 			$this->_email_id = $mail['id'];
             $mailInfo = unserialize($mail['content']);
+            
+            // 发送邮件
 			if ($mailInfo)
 			{
 				if ($this->processMail($mailInfo))
@@ -69,12 +71,14 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
 				}
 			}else
 			{
-				$log = 'unserialize error';
+				$log .= 'unserialize error\n';
 				$is_success = false;
 			}
+
+            // 记录结果
 			if (!empty($log))
 			{
-				$this->mailLog(true, 'unserialize error');
+				$this->mailLog(true, $log);
 			}
 			if ($is_success)
 			{
@@ -102,6 +106,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
     public function processMail($mailInfo)
     {
         $this->_email = $mailInfo;
+        $log = "";
         //如果本次评论设置了拒收邮件，把coid加入拒收列表
         if ($this->_email->banMail) {
             $this->ban($this->_email->coid, true);
@@ -129,6 +134,9 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
                 $this->_email->to = $this->_cfg->mail;
             }
             $this->authorMail()->sendMail();
+        }else
+        {
+            $log = "插件设置为不发送此类邮件或博主拒收邮件!\r\n";
         }
 
         //向访客发信
@@ -155,10 +163,17 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
                 $this->_email->originalAuthor = $original['author'];
                 $this->guestMail()->sendMail();
             }
+        }else
+        {
+            $log = "插件设置为不发送此类邮件或被评论访客拒收邮件!\r\n";
         }
         $date = new Typecho_Date(Typecho_Date::gmtTime());
         $time = $date->format('Y-m-d H:i:s');
-		$this->mailLog(false, $time . " 邮件发送完毕!\r\n");
+        if (empty($log))
+        {
+           $log = "邮件发送完毕!\r\n";
+        }
+		$this->mailLog(false, $time . " " . $log);
         return true;
 }
 
