@@ -59,7 +59,7 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
             $log = "";
             $is_success = false;
 			$this->_email_id = $mail['id'];
-            $mailInfo = unserialize($mail['content']);
+            $mailInfo = unserialize(base64_decode($mail['content']));
             
             // 发送邮件
 			if ($mailInfo)
@@ -125,54 +125,63 @@ class CommentToMail_Action extends Typecho_Widget implements Widget_Interface_Do
         $toMe = (in_array('to_me', $this->_cfg->other) && $this->_email->ownerId == $this->_email->authorId) ? true : false;
 
         //向博主发信
-        if (in_array($this->_email->status, $this->_cfg->status) && in_array('to_owner', $this->_cfg->other)
-            && ( $toMe || $this->_email->ownerId != $this->_email->authorId) && 0 == $this->_email->parent ) {
-            if (empty($this->_cfg->mail)) {
-                Typecho_Widget::widget('Widget_Users_Author@temp' . $this->_email->cid, array('uid' => $this->_email->ownerId))->to($user);
-            	$this->_email->to = $user->mail;
-            } else {
-                $this->_email->to = $this->_cfg->mail;
-            }
-            $this->authorMail()->sendMail();
-        }else
+        if (0 == $this->_email->parent)
         {
-            $log = "插件设置为不发送此类邮件或博主拒收邮件!\r\n";
+                if(in_array($this->_email->status, $this->_cfg->status) && in_array('to_owner', $this->_cfg->other)
+                    && ( $toMe || $this->_email->ownerId != $this->_email->authorId))
+                {
+                    if (empty($this->_cfg->mail)) {
+                        Typecho_Widget::widget('Widget_Users_Author@temp' . $this->_email->cid, array('uid' => $this->_email->ownerId))->to($user);
+                        $this->_email->to = $user->mail;
+                    } else {
+                        $this->_email->to = $this->_cfg->mail;
+                    }
+                    $this->authorMail()->sendMail();
+                    $log .= "向博主发信";
+                }else
+                {
+                    $log .= "插件设置为不发送此类邮件或博主拒收邮件!\r\n";
+                }
         }
 
         //向访客发信
-        if (0 != $this->_email->parent 
-            && 'approved' == $this->_email->status 
+        if (0 != $this->_email->parent)
+        {   if('approved' == $this->_email->status 
             && in_array('to_guest', $this->_cfg->other)
-            && !$this->ban($this->_email->parent)) {
-            //如果联系我的邮件地址为空，则使用文章作者的邮件地址
-            if (empty($this->_email->contactme)) {
-                if (!isset($user) || !$user) {
-                    Typecho_Widget::widget('Widget_Users_Author@temp' . $this->_email->cid, array('uid' => $this->_email->ownerId))->to($user);
+            && !$this->ban($this->_email->parent))
+            {
+                //如果联系我的邮件地址为空，则使用文章作者的邮件地址
+                if (empty($this->_email->contactme)) {
+                    if (!isset($user) || !$user) {
+                        Typecho_Widget::widget('Widget_Users_Author@temp' . $this->_email->cid, array('uid' => $this->_email->ownerId))->to($user);
+                    }
+                    $this->_email->contactme = $user->mail;
+                } else {
+                    $this->_email->contactme = $this->_cfg->contactme;
                 }
-                $this->_email->contactme = $user->mail;
-            } else {
-                $this->_email->contactme = $this->_cfg->contactme;
+                $original = $this->_db->fetchRow($this->_db->select('author', 'mail', 'text')
+                                                           ->from('table.comments')
+                                                           ->where('coid = ?', $this->_email->parent));
+                if (in_array('to_me', $this->_cfg->other) 
+                    || $this->_email->mail != $original['mail']) {
+                    $this->_email->to             = $original['mail'];
+                    $this->_email->originalText   = $original['text'];
+                    $this->_email->originalAuthor = $original['author'];
+                    $this->guestMail()->sendMail();
+                    $log .= "向访客发信";
+                }
+            }else
+            {
+                $log .= "插件设置为不发送此类邮件或被评论访客拒收邮件!\r\n";
             }
-            $original = $this->_db->fetchRow($this->_db->select('author', 'mail', 'text')
-                                                       ->from('table.comments')
-                                                       ->where('coid = ?', $this->_email->parent));
-            if (in_array('to_me', $this->_cfg->other) 
-                || $this->_email->mail != $original['mail']) {
-                $this->_email->to             = $original['mail'];
-                $this->_email->originalText   = $original['text'];
-                $this->_email->originalAuthor = $original['author'];
-                $this->guestMail()->sendMail();
-            }
-        }else
-        {
-            $log = "插件设置为不发送此类邮件或被评论访客拒收邮件!\r\n";
         }
         $date = new Typecho_Date(Typecho_Date::gmtTime());
         $time = $date->format('Y-m-d H:i:s');
         if (empty($log))
         {
-           $log = "邮件发送完毕!\r\n";
+           $log .= "邮件发送完毕!\r\n";
         }
+        $log .= in_array('to_guest', $this->_cfg->other);
 		$this->mailLog(false, $time . " " . $log);
         return true;
 }
