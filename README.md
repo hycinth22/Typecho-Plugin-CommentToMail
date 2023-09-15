@@ -2,7 +2,7 @@ Typecho 评论邮件提醒插件
 =============
 访客评论后，将会发送评论内容到您指定的邮箱。
 
-相比原版本，使用消息队列取代内部http调用，提升访客评论流畅度体验。
+相比原版本，该版本基于消息队列的思想，将存入数据库并稍后通过cron任务异步发送邮件的方式，取代内部直接http调用发送邮件，提升访客评论流畅度体验。
 
 遵循GPL LICENSE v2，衍生于[CommentToMail Byends版本 v2.0.0](http://typecho.byends.com/post/CommentToMail-v2-0-0.html)
 
